@@ -38,36 +38,84 @@ def run(args: list[str], cwd: Path) -> tuple[int, dict]:
     return proc.returncode, payload
 
 
+FIXTURE_BLOCKS: list[tuple[int, str]] = [
+    (1, "高等数学（上册）"),
+    (1, "第一章 函数与极限"),
+    (2, "1.1 函数的概念"),
+    (0, "定义 1.1 设 A、B 是两个非空集合，如果存在一个对应法则 f，使得对 A 中每个元素 x，"),
+    (0, "按照法则 f，在 B 中都有唯一确定的元素 y 与之对应，则称 f 为从 A 到 B 的函数。"),
+    (0, "函数的性质包括有界性、单调性、奇偶性和周期性。这些性质在后续章节中反复使用。"),
+    (2, "1.2 极限的定义"),
+    (0, "定理 1.1（夹逼准则）若在某去心邻域内 g(x) ≤ f(x) ≤ h(x)，且 lim g(x) = lim h(x) = A，"),
+    (0, "则 lim f(x) = A。该定理的适用前提是三者在同一去心邻域内有定义。"),
+    (0, "证明 由极限定义，对任意 ε > 0 存在 δ，使得当 0 < |x - x0| < δ 时两个不等式同时成立。"),
+    (2, "1.3 例题"),
+    (0, "例 1.1 求 lim (sin x)/x 当 x 趋于 0 时的值。解：由夹逼准则可得结果为 1。"),
+    (0, "练习 1.1 求 lim (tan x)/x 当 x 趋于 0 时的值。"),
+    (1, "第二章 导数与微分"),
+    (2, "2.1 导数的定义"),
+    (0, "定义 2.1 设函数 y = f(x) 在点 x0 的某邻域内有定义，若极限 lim [f(x0+Δx) - f(x0)]/Δx 存在，"),
+    (0, "则称该极限为 f 在 x0 处的导数，记作 f'(x0)。导数的几何意义是切线斜率。"),
+    (2, "2.2 求导法则"),
+    (0, "定理 2.1 若 u(x) 与 v(x) 在 x 处可导，则 (uv)' = u'v + uv'。该法则可推广到有限个因式。"),
+    (0, "推导 由导数定义展开增量比，再拆分极限，即可得到乘积法则。"),
+    (2, "2.3 例题与练习"),
+    (0, "例 2.1 求 y = x sin x 的导数。解：由乘积法则得 y' = sin x + x cos x。"),
+    (0, "练习 2.1 求 y = x^2 ln x 的导数。"),
+]
+
+
+def _write_docx_stdlib(path: Path) -> None:
+    """Write a minimal but valid .docx without python-docx."""
+    import zipfile
+    from xml.sax.saxutils import escape
+
+    parts = []
+    for level, text in FIXTURE_BLOCKS:
+        style = {1: "Heading1", 2: "Heading2"}.get(level)
+        ppr = f'<w:pPr><w:pStyle w:val="{style}"/></w:pPr>' if style else ""
+        parts.append(f'<w:p>{ppr}<w:r><w:t xml:space="preserve">{escape(text)}</w:t></w:r></w:p>')
+
+    document = (
+        '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+        '<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">'
+        f"<w:body>{''.join(parts)}</w:body></w:document>"
+    )
+    content_types = (
+        '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+        '<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">'
+        '<Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>'
+        '<Default Extension="xml" ContentType="application/xml"/>'
+        '<Override PartName="/word/document.xml" '
+        'ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/>'
+        "</Types>"
+    )
+    rels = (
+        '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+        '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">'
+        '<Relationship Id="rId1" '
+        'Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" '
+        'Target="word/document.xml"/></Relationships>'
+    )
+    with zipfile.ZipFile(path, "w", zipfile.ZIP_DEFLATED) as archive:
+        archive.writestr("[Content_Types].xml", content_types)
+        archive.writestr("_rels/.rels", rels)
+        archive.writestr("word/document.xml", document)
+
+
 def build_fixture(path: Path) -> None:
-    from docx import Document
+    try:
+        from docx import Document
+    except ImportError:
+        _write_docx_stdlib(path)
+        return
 
     doc = Document()
-    doc.add_heading("高等数学（上册）", level=1)
-
-    doc.add_heading("第一章 函数与极限", level=1)
-    doc.add_heading("1.1 函数的概念", level=2)
-    doc.add_paragraph("定义 1.1 设 A、B 是两个非空集合，如果存在一个对应法则 f，使得对 A 中每个元素 x，")
-    doc.add_paragraph("按照法则 f，在 B 中都有唯一确定的元素 y 与之对应，则称 f 为从 A 到 B 的函数。")
-    doc.add_paragraph("函数的性质包括有界性、单调性、奇偶性和周期性。这些性质在后续章节中反复使用。")
-    doc.add_heading("1.2 极限的定义", level=2)
-    doc.add_paragraph("定理 1.1（夹逼准则）若在某去心邻域内 g(x) ≤ f(x) ≤ h(x)，且 lim g(x) = lim h(x) = A，")
-    doc.add_paragraph("则 lim f(x) = A。该定理的适用前提是三者在同一去心邻域内有定义。")
-    doc.add_paragraph("证明 由极限定义，对任意 ε > 0 存在 δ，使得当 0 < |x - x0| < δ 时两个不等式同时成立。")
-    doc.add_heading("1.3 例题", level=2)
-    doc.add_paragraph("例 1.1 求 lim (sin x)/x 当 x 趋于 0 时的值。解：由夹逼准则可得结果为 1。")
-    doc.add_paragraph("练习 1.1 求 lim (tan x)/x 当 x 趋于 0 时的值。")
-
-    doc.add_heading("第二章 导数与微分", level=1)
-    doc.add_heading("2.1 导数的定义", level=2)
-    doc.add_paragraph("定义 2.1 设函数 y = f(x) 在点 x0 的某邻域内有定义，若极限 lim [f(x0+Δx) - f(x0)]/Δx 存在，")
-    doc.add_paragraph("则称该极限为 f 在 x0 处的导数，记作 f'(x0)。导数的几何意义是切线斜率。")
-    doc.add_heading("2.2 求导法则", level=2)
-    doc.add_paragraph("定理 2.1 若 u(x) 与 v(x) 在 x 处可导，则 (uv)' = u'v + uv'。该法则可推广到有限个因式。")
-    doc.add_paragraph("推导 由导数定义展开增量比，再拆分极限，即可得到乘积法则。")
-    doc.add_heading("2.3 例题与练习", level=2)
-    doc.add_paragraph("例 2.1 求 y = x sin x 的导数。解：由乘积法则得 y' = sin x + x cos x。")
-    doc.add_paragraph("练习 2.1 求 y = x^2 ln x 的导数。")
-
+    for level, text in FIXTURE_BLOCKS:
+        if level:
+            doc.add_heading(text, level=level)
+        else:
+            doc.add_paragraph(text)
     doc.save(str(path))
 
 
