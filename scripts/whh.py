@@ -32,7 +32,12 @@ PRODUCTS = {
     "因果链": {"figure": "Dependency graph（左→右）", "scopes": ["all", "chapter", "unit"], "layout": "layered"},
     "实验分析": {"figure": "Process", "scopes": ["chapter", "unit"], "layout": "layered"},
     "架构图": {"figure": "Architecture", "scopes": ["all", "chapter", "unit"], "layout": "layered"},
-    "学习路径": {"figure": "Dependency graph", "scopes": ["all", "chapter"], "layout": "layered"},
+    "学习路径": {
+        "figure": "Dependency graph",
+        "scopes": ["all", "chapter"],
+        "layout": "layered",
+        "edge_types": ["prerequisite_of", "precedes", "requires", "depends_on", "derives_from"],
+    },
     "结构图": {"figure": "Nested", "scopes": ["all", "chapter", "unit"], "layout": "nested"},
     "详解": {"figure": "无图", "scopes": ["unit"], "layout": "layered"},
     "练习": {"figure": "无图", "scopes": ["chapter", "unit"], "layout": "layered"},
@@ -761,6 +766,10 @@ def build_view_spec(book: dict, structure: dict, entities: list[dict], relations
         for r in relations
         if r.get("source_entity_id") in keep_ids and r.get("target_entity_id") in keep_ids
     ]
+
+    allowed_types = PRODUCTS.get(product, {}).get("edge_types")
+    if allowed_types:
+        edges = [r for r in edges if r.get("relation_type") in allowed_types]
 
     degree: dict[str, int] = {}
     for edge in edges:
